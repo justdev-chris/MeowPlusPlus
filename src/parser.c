@@ -44,27 +44,10 @@ void parser_parse(Token* tokens, int count) {
     
     advance();
     
-    // Just validate all tokens are valid Meow++ commands
-    int valid = 1;
     for (int i = 0; i < count; i++) {
-        Token t = tokens[i];
-        if (t.type == TOKEN_ERROR) {
-            valid = 0;
-            break;
+        if (tokens[i].type == TOKEN_ERROR) {
+            fprintf(stderr, "⚠️ Invalid tokens found. Aborting.\n");
+            exit(1);
         }
     }
-    
-    if (!valid) {
-        fprintf(stderr, "⚠️ Invalid tokens found. Aborting.\n");
-        exit(1);
-    }
-}
-
-// ─── GET TOKENS (for interpreter) ────────────────────────────
-Token* parser_get_tokens() {
-    return all_tokens;
-}
-
-int parser_get_count() {
-    return token_count;
 }
