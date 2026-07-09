@@ -39,11 +39,6 @@ static char peek() {
     return source[pos];
 }
 
-static char peek_next() {
-    if (is_at_end()) return '\0';
-    return source[pos + 1];
-}
-
 static char advance() {
     return source[pos++];
 }
@@ -59,7 +54,6 @@ static void skip_whitespace() {
             line++;
             advance();
         } else if (c == '\r') {
-            // Skip CR, and if followed by LF, skip that too
             advance();
             if (peek() == '\n') {
                 line++;
@@ -99,7 +93,6 @@ Token lexer_next_token() {
     // Skip comments
     if (peek() == '#') {
         while (!is_at_end() && peek() != '\n' && peek() != '\r') advance();
-        // Skip CRLF if present
         if (peek() == '\r') advance();
         if (peek() == '\n') advance();
         return lexer_next_token();
@@ -111,7 +104,7 @@ Token lexer_next_token() {
         return lexer_next_token();
     }
     
-    // Read word (letters only, no digits)
+    // Read word (letters only)
     if (isalpha(peek())) {
         char word[64];
         int i = 0;
