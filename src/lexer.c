@@ -82,17 +82,17 @@ Token lexer_next_token() {
         return lexer_next_token();
     }
     
-    // Skip punctuation (commas, periods, etc.) — ignore them
+    // Skip punctuation (commas, periods, etc.)
     if (ispunct(peek()) && peek() != '#') {
         advance();
         return lexer_next_token();
     }
     
-    // Read alphanumeric word
-    if (isalpha(peek())) {
+    // Read word (letters, digits, underscores)
+    if (isalpha(peek()) || peek() == '_') {
         char word[64];
         int i = 0;
-        while (!is_at_end() && isalpha(peek())) {
+        while (!is_at_end() && (isalnum(peek()) || peek() == '_')) {
             word[i++] = advance();
         }
         word[i] = '\0';
