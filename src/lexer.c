@@ -92,7 +92,7 @@ Token lexer_next_token() {
     if (isalpha(peek()) || peek() == '_') {
         char word[64];
         int i = 0;
-        while (!is_at_end() && (isalnum(peek()) || peek() == '_')) {
+        while (!is_at_end() && (isalnum(peek()) || peek() == '_') && peek() != '\n' && peek() != '\r') {
             word[i++] = advance();
         }
         word[i] = '\0';
