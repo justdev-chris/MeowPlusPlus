@@ -1,0 +1,70 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include "meowplus.h"
+
+// ─── GLOBALS ──────────────────────────────────────────────────
+static Token current_token;
+static Token* all_tokens;
+static int token_count;
+static int pos;
+
+// ─── HELPERS ──────────────────────────────────────────────────
+static void advance() {
+    if (pos < token_count) {
+        current_token = all_tokens[pos++];
+    }
+}
+
+static int match(TokenType type) {
+    if (current_token.type == type) {
+        advance();
+        return 1;
+    }
+    return 0;
+}
+
+static void expect(TokenType type, const char* msg) {
+    if (current_token.type != type) {
+        fprintf(stderr, "⚠️ Expected '%s' at line %d\n", msg, current_token.line);
+        exit(1);
+    }
+    advance();
+}
+
+// ─── PARSE ─────────────────────────────────────────────────────
+void parser_parse(Token* tokens, int count) {
+    all_tokens = tokens;
+    token_count = count;
+    pos = 0;
+    
+    if (count == 0) {
+        printf("⚠️ No tokens to parse\n");
+        return;
+    }
+    
+    advance();
+    
+    // Just validate all tokens are valid Meow++ commands
+    int valid = 1;
+    for (int i = 0; i < count; i++) {
+        Token t = tokens[i];
+        if (t.type == TOKEN_ERROR) {
+            valid = 0;
+            break;
+        }
+    }
+    
+    if (!valid) {
+        fprintf(stderr, "⚠️ Invalid tokens found. Aborting.\n");
+        exit(1);
+    }
+}
+
+// ─── GET TOKENS (for interpreter) ────────────────────────────
+Token* parser_get_tokens() {
+    return all_tokens;
+}
+
+int parser_get_count() {
+    return token_count;
+}
