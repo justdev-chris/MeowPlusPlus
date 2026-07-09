@@ -35,10 +35,10 @@ void lexer_init(const char* source);
 Token lexer_next_token();
 
 // ─── PARSER ────────────────────────────────────────────────────
-void parser_parse();
+void parser_parse(Token* tokens, int count);
 
 // ─── INTERPRETER ──────────────────────────────────────────────
-void interpreter_run(const char* code);
+void interpreter_meowplus(const Token* tokens, int count);
 void interpreter_repl();
 
 #endif
