@@ -39,6 +39,11 @@ static char peek() {
     return source[pos];
 }
 
+static char peek_next() {
+    if (is_at_end()) return '\0';
+    return source[pos + 1];
+}
+
 static char advance() {
     return source[pos++];
 }
@@ -48,9 +53,23 @@ static int is_at_end() {
 }
 
 static void skip_whitespace() {
-    while (!is_at_end() && isspace(peek())) {
-        if (peek() == '\n') line++;
-        advance();
+    while (!is_at_end()) {
+        char c = peek();
+        if (c == '\n') {
+            line++;
+            advance();
+        } else if (c == '\r') {
+            // Skip CR, and if followed by LF, skip that too
+            advance();
+            if (peek() == '\n') {
+                line++;
+                advance();
+            }
+        } else if (isspace(c)) {
+            advance();
+        } else {
+            break;
+        }
     }
 }
 
@@ -70,6 +89,7 @@ Token lexer_next_token() {
     Token token;
     token.line = line;
     token.text = NULL;
+    token.type = TOKEN_ERROR;
     
     if (is_at_end()) {
         token.type = TOKEN_EOF;
@@ -78,21 +98,24 @@ Token lexer_next_token() {
     
     // Skip comments
     if (peek() == '#') {
-        while (!is_at_end() && peek() != '\n') advance();
+        while (!is_at_end() && peek() != '\n' && peek() != '\r') advance();
+        // Skip CRLF if present
+        if (peek() == '\r') advance();
+        if (peek() == '\n') advance();
         return lexer_next_token();
     }
     
     // Skip punctuation (commas, periods, etc.)
-    if (ispunct(peek()) && peek() != '#') {
+    if (ispunct(peek())) {
         advance();
         return lexer_next_token();
     }
     
-    // Read word (letters, digits, underscores)
-    if (isalpha(peek()) || peek() == '_') {
+    // Read word (letters only, no digits)
+    if (isalpha(peek())) {
         char word[64];
         int i = 0;
-        while (!is_at_end() && (isalnum(peek()) || peek() == '_') && peek() != '\n' && peek() != '\r') {
+        while (!is_at_end() && isalpha(peek())) {
             word[i++] = advance();
         }
         word[i] = '\0';
@@ -108,6 +131,5 @@ Token lexer_next_token() {
     // Unexpected character
     printf("⚠️ Unexpected character '%c' at line %d\n", peek(), line);
     advance();
-    token.type = TOKEN_ERROR;
     return token;
 }
