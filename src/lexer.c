@@ -76,9 +76,15 @@ Token lexer_next_token() {
         return token;
     }
     
-    // Single-character tokens (comments start with #)
+    // Skip comments
     if (peek() == '#') {
         while (!is_at_end() && peek() != '\n') advance();
+        return lexer_next_token();
+    }
+    
+    // Skip punctuation (commas, periods, etc.) — ignore them
+    if (ispunct(peek()) && peek() != '#') {
+        advance();
         return lexer_next_token();
     }
     
