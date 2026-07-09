@@ -1,0 +1,40 @@
+name: Build Meow++
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install GCC
+      run: sudo apt update && sudo apt install -y gcc make
+    - name: Build
+      run: make
+    - name: Test Hello World
+      run: ./meowplus examples/hello.meowplus
+    - name: Test REPL
+      run: echo "purr purr meow" | ./meowplus -i
+    - name: Upload binary
+      uses: actions/upload-artifact@v4
+      with:
+        name: meowplus-linux
+        path: meowplus
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Build
+      run: gcc -Iinclude -o meowplus.exe src/*.c
+    - name: Test Hello World
+      run: ./meowplus.exe examples/hello.meowplus
+    - name: Upload binary
+      uses: actions/upload-artifact@v4
+      with:
+        name: meowplus-windows
+        path: meowplus.exe
