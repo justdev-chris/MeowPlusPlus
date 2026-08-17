@@ -31,23 +31,13 @@ void interpreter_meowplus(const Token* tokens, int count) {
             
             case TOKEN_IFMEOW:
                 if (tape[ptr] == 0) {
-                    int depth = 1;
-                    while (depth > 0 && ip < count) {
-                        ip++;
-                        if (tokens[ip].type == TOKEN_IFMEOW) depth++;
-                        if (tokens[ip].type == TOKEN_ENDMEOW) depth--;
-                    }
+                    ip = t.index;
                 }
                 break;
                 
             case TOKEN_ENDMEOW:
                 if (tape[ptr] != 0) {
-                    int depth = 1;
-                    while (depth > 0 && ip >= 0) {
-                        ip--;
-                        if (tokens[ip].type == TOKEN_ENDMEOW) depth++;
-                        if (tokens[ip].type == TOKEN_IFMEOW) depth--;
-                    }
+                    ip = t.index;
                 }
                 break;
                 
@@ -77,7 +67,11 @@ void interpreter_repl() {
             t = lexer_next_token();
         }
         
-        interpreter_meowplus(tokens, count);
+        if (count > 0) {
+            parser_match_loops(tokens, count);
+            interpreter_meowplus(tokens, count);
+        }
+        
         printf("\nmeow++> ");
     }
 }
