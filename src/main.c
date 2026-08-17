@@ -1,8 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 #include "meowplus.h"
+
+#ifdef HAVE_LLVM
+#include <llvm-c/Core.h>
+#endif
 
 // ─── HELPERS ──────────────────────────────────────────────────
 void print_usage() {
