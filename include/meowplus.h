@@ -28,17 +28,31 @@ typedef struct {
     TokenType type;
     char* text;
     int line;
+    int index;        // For loop matching
 } Token;
 
 // ─── LEXER ──────────────────────────────────────────────────────
 void lexer_init(const char* source);
 Token lexer_next_token();
+void lexer_free_tokens(Token* tokens, int count);
 
 // ─── PARSER ────────────────────────────────────────────────────
 void parser_parse(Token* tokens, int count);
+int parser_match_loops(Token* tokens, int count);
+
+// ─── CODE GENERATOR ──────────────────────────────────────────
+void codegen_init();
+void codegen_generate(const Token* tokens, int count);
+void codegen_compile(const char* output_name, int optimize);
+void codegen_cleanup();
 
 // ─── INTERPRETER ──────────────────────────────────────────────
 void interpreter_meowplus(const Token* tokens, int count);
 void interpreter_repl();
+
+// ─── HELPERS ──────────────────────────────────────────────────
+void print_usage();
+char* read_file(const char* path);
+void run_code(const char* code);
 
 #endif
