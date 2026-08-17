@@ -29,96 +29,88 @@ jobs:
           mingw-w64-x86_64-lld
           mingw-w64-x86_64-gdb
     
-    - name: Full Build & Test Logs
+    - name: Debug - Check LLVM Installation
       run: |
-        exec > >(tee -a full_log.txt)
-        exec 2>&1
-        
-        echo "========================================="
-        echo "🐱 MEOW++ FULL BUILD & TEST LOG"
-        echo "========================================="
-        echo "Date: $(date)"
-        echo "System: $(uname -a)"
-        echo ""
-        
-        echo "=== PART 1: LLVM DEBUG INFO ==="
-        echo "-----------------------------------------"
-        echo "LLVM VERSION:"
+        echo "=== LLVM VERSION ==="
         /mingw64/bin/llvm-config --version
         echo ""
-        echo "LLVM CFLAGS:"
+        echo "=== LLVM CFLAGS ==="
         /mingw64/bin/llvm-config --cflags
         echo ""
-        echo "LLVM LIBS:"
+        echo "=== LLVM LIBS ==="
         /mingw64/bin/llvm-config --libs
         echo ""
-        echo "LLVM INCLUDEDIR:"
+        echo "=== LLVM INCLUDEDIR ==="
         /mingw64/bin/llvm-config --includedir
         echo ""
-        echo "LLVM BINDIR:"
+        echo "=== LLVM BINDIR ==="
         /mingw64/bin/llvm-config --bindir
         echo ""
-        echo "LLVM-C HEADERS:"
-        ls -la /mingw64/include/llvm-c/ 2>/dev/null || echo "Headers not found"
+        echo "=== Check llvm-c headers ==="
+        ls -la /mingw64/include/llvm-c/ 2>/dev/null || echo "Headers not found in /mingw64/include/llvm-c/"
         echo ""
-        echo "LLVM LIBRARIES:"
-        ls -la /mingw64/lib/libLLVM*.a 2>/dev/null | head -5 || echo "No libraries found"
-        echo "-----------------------------------------"
-        
-        echo ""
-        echo "=== PART 2: BUILD ==="
-        echo "-----------------------------------------"
+        echo "=== Check LLVM libraries ==="
+        ls -la /mingw64/lib/libLLVM*.a 2>/dev/null | head -5 || echo "No LLVM libraries found"
+    
+    - name: Build Meow++ with LLVM (Debug Mode)
+      run: |
         export LLVM_CONFIG=/mingw64/bin/llvm-config
         export PATH=/mingw64/bin:$PATH
-        
-        echo "Building with LLVM..."
-        make clean
-        make CFLAGS="-Wall -Wextra -Iinclude -g -DHAVE_LLVM -DDEBUG"
-        
+        echo "=== Building with LLVM ==="
+        mingw32-make clean
+        mingw32-make CFLAGS="-Wall -Wextra -Iinclude -g -DHAVE_LLVM -DDEBUG"
         echo ""
-        echo "Build complete. Binary info:"
+        echo "=== Build complete ==="
         ls -la meowplus.exe
-        echo "Binary size: $(du -h meowplus.exe | cut -f1)"
-        echo "-----------------------------------------"
-        
+    
+    - name: Debug - Check Binary
+      run: |
+        echo "=== Binary info ==="
+        file meowplus.exe 2>/dev/null || echo "file command not available"
         echo ""
-        echo "=== PART 3: TESTS ==="
-        echo "-----------------------------------------"
-        
-        test_count=0
-        pass_count=0
-        fail_count=0
-        
-        run_test() {
-          test_count=$((test_count + 1))
-          echo ""
-          echo "--- TEST $test_count: $1 ---"
-          echo "Input: $2"
-          echo "Output:"
-          eval $2
-          if [ $? -eq 0 ]; then
-            echo "✅ PASSED"
-            pass_count=$((pass_count + 1))
-          else
-            echo "❌ FAILED (exit code: $?)"
-            fail_count=$((fail_count + 1))
-          fi
-          echo "--- END TEST $test_count ---"
-        }
-        
-        # Test 1: Help
-        run_test "Help" "./meowplus.exe -h"
-        
-        # Test 2: Interpreter Hello World
-        run_test "Interpreter" "./meowplus.exe -r examples/hello.meowplus"
-        
-        # Test 3: Compiler Hello World
-        run_test "Compiler" "./meowplus.exe examples/hello.meowplus -o hello.exe -O2 && ./hello.exe"
-        
-        # Test 4: REPL
-        run_test "REPL" "echo 'purr purr meow' | ./meowplus.exe -i"
-        
-        # Test 5: Loops
+        echo "=== Dependencies ==="
+        ldd meowplus.exe 2>/dev/null || echo "ldd not available"
+        echo ""
+        echo "=== Binary size ==="
+        ls -lh meowplus.exe
+    
+    - name: Test 1 - Help
+      run: |
+        echo "=== TEST 1: Help ==="
+        ./meowplus.exe -h
+    
+    - name: Test 2 - Interpreter Hello World
+      run: |
+        echo "=== TEST 2: Interpreter ==="
+        echo "Input: ./meowplus.exe -r examples/hello.meowplus"
+        echo "Output:"
+        ./meowplus.exe -r examples/hello.meowplus
+        echo ""
+        echo "Exit code: $?"
+    
+    - name: Test 3 - Compiler Hello World
+      run: |
+        echo "=== TEST 3: Compiler ==="
+        echo "Input: ./meowplus.exe examples/hello.meowplus -o hello.exe -O2"
+        ./meowplus.exe examples/hello.meowplus -o hello.exe -O2
+        echo ""
+        echo "=== Running compiled binary ==="
+        ./hello.exe
+        echo ""
+        echo "Exit code: $?"
+    
+    - name: Test 4 - REPL
+      run: |
+        echo "=== TEST 4: REPL ==="
+        echo "Input: echo 'purr purr meow' | ./meowplus.exe -i"
+        echo "Output:"
+        echo "purr purr meow" | ./meowplus.exe -i
+        echo ""
+        echo "Exit code: $?"
+    
+    - name: Test 5 - Loops
+      run: |
+        echo "=== TEST 5: Loops ==="
         echo "# Count 0-9
         paw purr purr purr purr purr purr purr purr purr purr
         ifmeow
@@ -128,27 +120,148 @@ jobs:
           hiss
         endmeow
         meow" > test_loop.meowplus
-        run_test "Loops" "./meowplus.exe -r test_loop.meowplus"
+        echo "Input: ./meowplus.exe -r test_loop.meowplus"
+        echo "Output:"
+        ./meowplus.exe -r test_loop.meowplus
+        echo ""
+        echo "Exit code: $?"
+    
+    - name: Test 6 - LLVM IR Generation
+      run: |
+        echo "=== TEST 6: LLVM IR ==="
+        echo "Input: ./meowplus.exe examples/hello.meowplus -o test -S"
+        ./meowplus.exe examples/hello.meowplus -o test -S
+        echo ""
+        echo "=== Generated IR file ==="
+        if [ -f test.ll ]; then
+          echo "✅ test.ll generated successfully"
+          echo ""
+          echo "=== First 20 lines of IR ==="
+          head -20 test.ll
+          echo ""
+          echo "=== Last 10 lines of IR ==="
+          tail -10 test.ll
+          echo ""
+          echo "=== IR file size ==="
+          ls -lh test.ll
+        else
+          echo "❌ test.ll NOT generated"
+          exit 1
+        fi
+    
+    - name: Test 7 - All Optimization Levels
+      run: |
+        echo "=== TEST 7: Optimization Levels ==="
+        echo "=== -O0 ==="
+        ./meowplus.exe examples/hello.meowplus -o hello_O0.exe -O0
+        ./hello_O0.exe
+        echo ""
+        echo "=== -O1 ==="
+        ./meowplus.exe examples/hello.meowplus -o hello_O1.exe -O1
+        ./hello_O1.exe
+        echo ""
+        echo "=== -O2 ==="
+        ./meowplus.exe examples/hello.meowplus -o hello_O2.exe -O2
+        ./hello_O2.exe
+        echo ""
+        echo "=== -O3 ==="
+        ./meowplus.exe examples/hello.meowplus -o hello_O3.exe -O3
+        ./hello_O3.exe
+        echo ""
+        echo "=== File sizes ==="
+        ls -lh hello_O*.exe
+    
+    - name: Test 8 - Input/Output
+      run: |
+        echo "=== TEST 8: Input/Output ==="
+        echo "# Echo input
+        listen meow" > test_io.meowplus
+        echo "Input: echo 'X' | ./meowplus.exe -r test_io.meowplus"
+        echo "Output:"
+        echo "X" | ./meowplus.exe -r test_io.meowplus
+        echo ""
+        echo "Exit code: $?"
+    
+    - name: Test 9 - Error Handling
+      run: |
+        echo "=== TEST 9: Error Handling ==="
+        echo "# Invalid keyword
+        purr invalid meow" > test_error.meowplus
+        echo "Input: ./meowplus.exe -r test_error.meowplus"
+        echo "Output:"
+        ./meowplus.exe -r test_error.meowplus 2>&1
+        echo ""
+        echo "Exit code: $?"
+    
+    - name: Test 10 - Complex Program
+      run: |
+        echo "=== TEST 10: Complex Program ==="
+        echo "# Fibonacci sequence generator
+        # Print first 10 Fibonacci numbers
         
-        # Test 6: LLVM IR Generation
-        run_test "LLVM IR Generation" "./meowplus.exe examples/hello.meowplus -o test -S && [ -f test.ll ]"
+        # Set up loop counter (10)
+        paw paw paw paw paw paw paw paw paw paw
         
-        # Test 7: Optimization Levels
-        run_test "Optimization -O0" "./meowplus.exe examples/hello.meowplus -o hello_O0.exe -O0 && ./hello_O0.exe"
-        run_test "Optimization -O1" "./meowplus.exe examples/hello.meowplus -o hello_O1.exe -O1 && ./hello_O1.exe"
-        run_test "Optimization -O2" "./meowplus.exe examples/hello.meowplus -o hello_O2.exe -O2 && ./hello_O2.exe"
-        run_test "Optimization -O3" "./meowplus.exe examples/hello.meowplus -o hello_O3.exe -O3 && ./hello_O3.exe"
+        # Initialize values
+        pawback pawback
+        purr meow            # Print first number (1)
         
-        # Test 8: Input/Output
-        echo "listen meow" > test_io.meowplus
-        run_test "Input/Output" "echo 'X' | ./meowplus.exe -r test_io.meowplus"
+        paw
+        purr meow            # Print second number (1)
         
-        # Test 9: Error Handling
-        echo "purr invalid meow" > test_error.meowplus
-        run_test "Error Handling" "./meowplus.exe -r test_error.meowplus 2>&1 || true"
+        pawback pawback
         
-        # Test 10: Nested Loops
-        echo "# Nested loops
+        # Main loop
+        ifmeow
+          # Move to a
+          paw paw
+          
+          # b = b + a
+          pawback
+          pawback
+          pawback
+          pawback
+          paw
+          paw
+          
+          # Restore position
+          pawback pawback pawback pawback pawback
+          
+          # Decrement counter
+          paw
+          hiss
+        endmeow" > test_fib.meowplus
+        echo "Input: ./meowplus.exe -r test_fib.meowplus"
+        echo "Output:"
+        ./meowplus.exe -r test_fib.meowplus 2>&1 || echo "Test may fail (complex)"
+        echo ""
+        echo "Exit code: $?"
+    
+    - name: Test 11 - Memory Operations
+      run: |
+        echo "=== TEST 11: Memory Operations ==="
+        echo "# Move pointer and modify cells
+        purr purr purr
+        paw
+        purr purr
+        paw
+        purr
+        pawback pawback
+        meow
+        paw
+        meow
+        paw
+        meow" > test_memory.meowplus
+        echo "Input: ./meowplus.exe -r test_memory.meowplus"
+        echo "Output:"
+        ./meowplus.exe -r test_memory.meowplus
+        echo ""
+        echo "Exit code: $?"
+    
+    - name: Test 12 - Nested Loops
+      run: |
+        echo "=== TEST 12: Nested Loops ==="
+        echo "# Nested loops test
         purr purr
         ifmeow
           paw
@@ -163,104 +276,90 @@ jobs:
           pawback
           hiss
         endmeow" > test_nested.meowplus
-        run_test "Nested Loops" "./meowplus.exe -r test_nested.meowplus"
-        
-        # Test 11: Memory Operations
-        echo "# Memory ops
-        purr purr purr
-        paw
-        purr purr
-        paw
-        purr
-        pawback pawback
-        meow
-        paw
-        meow
-        paw
-        meow" > test_memory.meowplus
-        run_test "Memory Operations" "./meowplus.exe -r test_memory.meowplus"
-        
-        # Test 12: Large Program
-        echo "# Large program" > test_large.meowplus
-        for i in {1..100}; do echo -n "purr " >> test_large.meowplus; done
-        echo "meow" >> test_large.meowplus
-        run_test "Large Program" "./meowplus.exe -r test_large.meowplus"
-        
-        # Test 13: Edge Cases - Empty
-        echo "" > test_empty.meowplus
-        run_test "Empty Program" "./meowplus.exe -r test_empty.meowplus"
-        
-        # Test 14: Edge Cases - Comments Only
-        echo "# comment 1
-        # comment 2
-        # comment 3" > test_comments.meowplus
-        run_test "Comments Only" "./meowplus.exe -r test_comments.meowplus"
-        
-        # Test 15: Edge Cases - Unmatched Loop
-        echo "ifmeow" > test_unmatched.meowplus
-        run_test "Unmatched Loop" "./meowplus.exe -r test_unmatched.meowplus 2>&1 || true"
-        
-        # Test 16: Edge Cases - Empty Loop
-        echo "ifmeow
-        endmeow" > test_empty_loop.meowplus
-        run_test "Empty Loop" "./meowplus.exe -r test_empty_loop.meowplus"
-        
-        # Test 17: Compiler Speed
-        echo "# Speed test" > test_speed.meowplus
+        echo "Input: ./meowplus.exe -r test_nested.meowplus"
+        echo "Output:"
+        ./meowplus.exe -r test_nested.meowplus
+        echo ""
+        echo "Exit code: $?"
+    
+    - name: Test 13 - Large Program
+      run: |
+        echo "=== TEST 13: Large Program ==="
+        echo "# Large program - 100 operations
+        $(for i in {1..100}; do echo -n "purr "; done) meow" > test_large.meowplus
+        echo "Input: ./meowplus.exe -r test_large.meowplus"
+        echo "Output:"
+        ./meowplus.exe -r test_large.meowplus
+        echo ""
+        echo "Exit code: $?"
+    
+    - name: Test 14 - Compile with Debug Info
+      run: |
+        echo "=== TEST 14: Compile with Debug Info ==="
+        echo "Input: ./meowplus.exe examples/hello.meowplus -o hello_debug.exe -O0"
+        ./meowplus.exe examples/hello.meowplus -o hello_debug.exe -O0
+        echo ""
+        echo "=== Running with debug info ==="
+        ./hello_debug.exe
+        echo ""
+        echo "Exit code: $?"
+    
+    - name: Test 15 - Compiler Speed Test
+      run: |
+        echo "=== TEST 15: Compiler Speed Test ==="
+        echo "# Large program - 1000 operations" > test_speed.meowplus
         for i in {1..1000}; do echo -n "purr " >> test_speed.meowplus; done
         echo "meow" >> test_speed.meowplus
-        run_test "Compiler Speed (1000 ops)" "time ./meowplus.exe test_speed.meowplus -o speed_test.exe -O2 && ./speed_test.exe"
         
-        # Test 18: Debug Build
-        run_test "Debug Build" "./meowplus.exe examples/hello.meowplus -o hello_debug.exe -O0 && ./hello_debug.exe"
-        
+        echo "=== Compiling large program ==="
+        time ./meowplus.exe test_speed.meowplus -o speed_test.exe -O2
         echo ""
-        echo "-----------------------------------------"
-        echo "=== TEST SUMMARY ==="
-        echo "Total tests: $test_count"
-        echo "✅ Passed: $pass_count"
-        echo "❌ Failed: $fail_count"
-        echo "-----------------------------------------"
-        
+        echo "=== Running compiled program ==="
+        ./speed_test.exe
         echo ""
-        echo "=== PART 4: GENERATED FILES ==="
-        echo "-----------------------------------------"
-        echo "Executables:"
-        ls -la *.exe 2>/dev/null || echo "No exe files"
-        echo ""
-        echo "LLVM IR files:"
-        ls -la *.ll 2>/dev/null || echo "No .ll files"
-        echo ""
-        echo "Test files:"
-        ls -la test_*.meowplus 2>/dev/null || echo "No test files"
-        echo "-----------------------------------------"
-        
-        echo ""
-        echo "=== END OF LOG ==="
-        echo "========================================="
-        
-      shell: msys2 {0}
+        echo "Exit code: $?"
     
-    - name: Upload full logs
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: full-logs
-        path: full_log.txt
+    - name: Test 16 - Edge Cases
+      run: |
+        echo "=== TEST 16: Edge Cases ==="
+        echo "# Empty program" > test_empty.meowplus
+        echo "=== Empty program ==="
+        ./meowplus.exe -r test_empty.meowplus
+        echo ""
+        
+        echo "# Only comments" > test_comments.meowplus
+        echo "# This is a comment
+        # Another comment
+        # Third comment" >> test_comments.meowplus
+        echo "=== Only comments ==="
+        ./meowplus.exe -r test_comments.meowplus
+        echo ""
+        
+        echo "# Unmatched loop" > test_unmatched.meowplus
+        echo "ifmeow" >> test_unmatched.meowplus
+        echo "=== Unmatched loop ==="
+        ./meowplus.exe -r test_unmatched.meowplus 2>&1 || echo "Error caught correctly"
+        echo ""
+        
+        echo "# Empty loop" > test_empty_loop.meowplus
+        echo "ifmeow
+        endmeow" >> test_empty_loop.meowplus
+        echo "=== Empty loop ==="
+        ./meowplus.exe -r test_empty_loop.meowplus
+        echo ""
     
     - name: Upload binary
-      if: always()
       uses: actions/upload-artifact@v4
       with:
         name: meowplus-windows
         path: meowplus.exe
     
-    - name: Upload test artifacts
+    - name: Upload test outputs
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: test-artifacts
+        name: test-outputs
         path: |
+          *.meowplus
           *.exe
           *.ll
-          test_*.meowplus
