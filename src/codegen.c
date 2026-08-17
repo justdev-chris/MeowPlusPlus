@@ -215,16 +215,16 @@ void codegen_compile(const char* output_name, int optimize) {
     }
     free(bc_file);
     
-    // Compile with clang
+    // Compile with clang (not gcc - gcc can't handle .bc files)
     char cmd[1024];
     const char* opt_flags = "";
     if (optimize >= 3) opt_flags = "-O3";
     else if (optimize >= 2) opt_flags = "-O2";
     else if (optimize >= 1) opt_flags = "-O1";
     
-    // Use GCC for linking on Windows
+    // Use clang to compile bitcode to executable
     snprintf(cmd, sizeof(cmd), 
-        "gcc -o %s %s.bc %s -lm -no-pie", 
+        "clang %s.bc -o %s %s -lm", 
         output_name, output_name, opt_flags);
     
     int result = system(cmd);
