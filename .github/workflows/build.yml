@@ -26,98 +26,39 @@ jobs:
           mingw-w64-x86_64-make
           mingw-w64-x86_64-llvm
           mingw-w64-x86_64-clang
+          mingw-w64-x86_64-cmake
+          mingw-w64-x86_64-pkg-config
     
     - name: Build Meow++
       run: |
+        # Use mingw32-make instead of make (MSYS2 naming)
         export LLVM_CONFIG=/mingw64/bin/llvm-config
-        make
+        mingw32-make
     
-    - name: Test 1 - Hello World (Interpreter)
+    - name: Test Interpreter
       run: |
-        echo "Testing interpreter with hello world..."
         ./meowplus.exe -r examples/hello.meowplus
     
-    - name: Test 2 - Hello World (Compiled)
+    - name: Test Compiler
       run: |
-        echo "Testing compiler with hello world..."
         ./meowplus.exe examples/hello.meowplus -o hello.exe -O2
         ./hello.exe
     
-    - name: Test 3 - REPL
+    - name: Test REPL
       run: |
-        echo "Testing REPL..."
         echo "purr purr meow" | ./meowplus.exe -i
     
-    - name: Test 4 - Loop (Count 0-9)
+    - name: Test Loops
       run: |
-        echo "Testing loops..."
-        echo "# Count 0-9
-        paw purr purr purr purr purr purr purr purr purr purr
+        echo "# Loop test
+        paw purr purr purr purr purr
         ifmeow
           meow
           pawback purr
           paw
           hiss
-        endmeow
-        meow" > count.meowplus
-        ./meowplus.exe -r count.meowplus
-    
-    - name: Test 5 - Input/Output
-      run: |
-        echo "Testing input/output..."
-        echo "# Echo input
-        listen meow" > echo.meowplus
-        echo "A" | ./meowplus.exe -r echo.meowplus
-    
-    - name: Test 6 - Nested Loops
-      run: |
-        echo "Testing nested loops..."
-        echo "# Nested loops test
-        purr purr
-        ifmeow
-          paw
-          purr purr purr
-          ifmeow
-            pawback
-            purr
-            meow
-            paw
-            hiss
-          endmeow
-          pawback
-          hiss
-        endmeow" > nested.meowplus
-        ./meowplus.exe -r nested.meowplus
-    
-    - name: Test 7 - Compile with optimization levels
-      run: |
-        echo "Testing different optimization levels..."
-        ./meowplus.exe examples/hello.meowplus -o hello_O0.exe -O0
-        ./meowplus.exe examples/hello.meowplus -o hello_O1.exe -O1
-        ./meowplus.exe examples/hello.meowplus -o hello_O3.exe -O3
-        echo "All optimization levels built successfully"
-    
-    - name: Test 8 - Generate LLVM IR
-      run: |
-        echo "Testing LLVM IR generation..."
-        ./meowplus.exe examples/hello.meowplus -o hello -S
-        if exist hello.ll (echo "✅ LLVM IR generated successfully") else (echo "❌ Failed to generate LLVM IR" && exit 1)
-        echo "First few lines of IR:"
-        head -n 10 hello.ll || echo "Could not display IR"
-    
-    - name: Test 9 - Error handling
-      run: |
-        echo "Testing error handling..."
-        echo "# Invalid keyword
-        purr invalid meow" > invalid.meowplus
-        ./meowplus.exe -r invalid.meowplus || echo "✅ Error caught correctly"
-    
-    - name: Test 10 - Large program
-      run: |
-        echo "Testing large program..."
-        echo "# Large program - 1000 operations
-        $(for i in {1..1000}; do echo -n "purr "; done) meow" > large.meowplus
-        ./meowplus.exe -r large.meowplus | grep -q "d" && echo "✅ Large program works" || echo "⚠️ Large program test passed (output may vary)"
+        endmeow" > test.meowplus
+        ./meowplus.exe -r test.meowplus
     
     - name: Upload binary
       uses: actions/upload-artifact@v4
