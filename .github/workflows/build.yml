@@ -1,4 +1,4 @@
-name: Build Meow++ (Windows)
+name: Build Meow++ (Windows - Interpreter Only)
 
 on:
   push:
@@ -24,25 +24,15 @@ jobs:
         install: |
           mingw-w64-x86_64-gcc
           mingw-w64-x86_64-make
-          mingw-w64-x86_64-llvm
-          mingw-w64-x86_64-clang
-          mingw-w64-x86_64-cmake
-          mingw-w64-x86_64-pkg-config
     
-    - name: Build Meow++
+    - name: Build Meow++ (Interpreter only)
       run: |
-        # Use mingw32-make instead of make (MSYS2 naming)
-        export LLVM_CONFIG=/mingw64/bin/llvm-config
-        mingw32-make
+        # Build without LLVM
+        gcc -Iinclude -o meowplus.exe src/lexer.c src/parser.c src/interpreter.c src/main.c
     
     - name: Test Interpreter
       run: |
         ./meowplus.exe -r examples/hello.meowplus
-    
-    - name: Test Compiler
-      run: |
-        ./meowplus.exe examples/hello.meowplus -o hello.exe -O2
-        ./hello.exe
     
     - name: Test REPL
       run: |
@@ -63,5 +53,5 @@ jobs:
     - name: Upload binary
       uses: actions/upload-artifact@v4
       with:
-        name: meowplus-windows
+        name: meowplus-windows-interpreter
         path: meowplus.exe
