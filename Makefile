@@ -1,45 +1,42 @@
+# Detect LLVM config
+LLVM_CONFIG ?= /mingw64/bin/llvm-config
+
+# Check if LLVM is available
+LLVM_AVAILABLE := $(shell command -v $(LLVM_CONFIG) 2>/dev/null)
+
+ifdef LLVM_AVAILABLE
+    LLVM_CFLAGS := $(shell $(LLVM_CONFIG) --cflags)
+    LLVM_LIBS := $(shell $(LLVM_CONFIG) --libs --ldflags) -lLLVM
+    USE_LLVM := 1
+else
+    $(warning LLVM not found, building without codegen support)
+    USE_LLVM := 0
+    LLVM_CFLAGS :=
+    LLVM_LIBS :=
+endif
+
 CC = gcc
 CFLAGS = -Wall -Wextra -Iinclude -g
-LLVM_CFLAGS = $(shell llvm-config --cflags)
-LLVM_LIBS = $(shell llvm-config --libs --ldflags) -lLLVM
-
-TARGET = meowplus
-SRCS = src/lexer.c src/parser.c src/interpreter.c src/codegen.c src/main.c
+TARGET = meowplus.exe
+SRCS = src/lexer.c src/parser.c src/interpreter.c src/main.c
 OBJS = $(SRCS:.c=.o)
+
+# Add codegen if LLVM is available
+ifeq ($(USE_LLVM),1)
+    SRCS += src/codegen.c
+    CFLAGS += $(LLVM_CFLAGS)
+    LDFLAGS = $(LLVM_LIBS)
+endif
 
 all: $(TARGET)
 
 $(TARGET): $(OBJS)
-	$(CC) $(CFLAGS) $(LLVM_CFLAGS) -o $(TARGET) $(OBJS) $(LLVM_LIBS)
+	$(CC) $(CFLAGS) -o $(TARGET) $(OBJS) $(LDFLAGS)
 
 %.o: %.c
-	$(CC) $(CFLAGS) $(LLVM_CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
 	rm -f $(OBJS) $(TARGET) *.o *.bc *.ll
 
-install: $(TARGET)
-	cp $(TARGET) /usr/local/bin/
-
-uninstall:
-	rm -f /usr/local/bin/$(TARGET)
-
-run: $(TARGET)
-	./$(TARGET) -r examples/hello.meowplus
-
-repl: $(TARGET)
-	./$(TARGET) -i
-
-help:
-	./$(TARGET) -h
-
-# Example with compilation
-example: $(TARGET)
-	./$(TARGET) examples/hello.meowplus -o hello -O2
-	./hello
-
-# Generate LLVM IR
-ir: $(TARGET)
-	./$(TARGET) examples/hello.meowplus -o hello -S
-
-.PHONY: all clean install uninstall run repl help example ir
+.PHONY: all clean
