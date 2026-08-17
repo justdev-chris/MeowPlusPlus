@@ -5,6 +5,7 @@
 
 #ifdef HAVE_LLVM
 #include <llvm-c/Core.h>
+extern LLVMModuleRef module;
 #endif
 
 // ─── HELPERS ──────────────────────────────────────────────────
