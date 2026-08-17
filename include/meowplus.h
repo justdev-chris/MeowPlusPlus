@@ -41,10 +41,12 @@ void parser_parse(Token* tokens, int count);
 int parser_match_loops(Token* tokens, int count);
 
 // ─── CODE GENERATOR ──────────────────────────────────────────
+#ifdef HAVE_LLVM
 void codegen_init();
 void codegen_generate(const Token* tokens, int count);
 void codegen_compile(const char* output_name, int optimize);
 void codegen_cleanup();
+#endif
 
 // ─── INTERPRETER ──────────────────────────────────────────────
 void interpreter_meowplus(const Token* tokens, int count);
