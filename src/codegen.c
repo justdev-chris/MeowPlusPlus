@@ -5,10 +5,6 @@
 #include <llvm-c/BitWriter.h>
 #include <llvm-c/Target.h>
 #include <llvm-c/Analysis.h>
-#include <llvm-c/Transforms/Scalar.h>
-#include <llvm-c/Transforms/Utils.h>
-#include <llvm-c/Transforms/IPO.h>
-#include <llvm-c/Transforms/InstCombine.h>
 #include "meowplus.h"
 
 // ─── GLOBALS ──────────────────────────────────────────────────
@@ -207,30 +203,33 @@ void codegen_generate(const Token* tokens, int count) {
     LLVMBuildRetVoid(builder);
 }
 
-// ─── OPTIMIZE ──────────────────────────────────────────────────
+// ─── SIMPLE OPTIMIZATIONS ────────────────────────────────────
 static void codegen_optimize(int level) {
     if (level <= 0) return;
     
+    // Simple optimizations using LLVM's C API
     LLVMPassManagerRef pass_manager = LLVMCreatePassManager();
+    
+    // Always run these basic passes
+    LLVMAddPromoteMemoryToRegisterPass(pass_manager);
+    LLVMAddAggressiveDCEPass(pass_manager);
     
     if (level >= 1) {
         LLVMAddCFGSimplificationPass(pass_manager);
         LLVMAddGVNPass(pass_manager);
-        LLVMAddAggressiveDCEPass(pass_manager);
-        LLVMAddPromoteMemoryToRegisterPass(pass_manager);
     }
     
     if (level >= 2) {
         LLVMAddConstantPropagationPass(pass_manager);
         LLVMAddInstructionCombiningPass(pass_manager);
-        LLVMAddLoopRotatePass(pass_manager);
-        LLVMAddLICMPass(pass_manager);
     }
     
     if (level >= 3) {
-        LLVMAddFunctionInliningPass(pass_manager);
-        LLVMAddLoopUnrollPass(pass_manager);
-        LLVMAddTailCallEliminationPass(pass_manager);
+        // Note: Function inlining and loop unroll might not be available in all LLVM-C builds
+        // They're commented out for compatibility
+        // LLVMAddFunctionInliningPass(pass_manager);
+        // LLVMAddLoopUnrollPass(pass_manager);
+        // LLVMAddTailCallEliminationPass(pass_manager);
     }
     
     LLVMRunPassManager(pass_manager, module);
@@ -271,7 +270,7 @@ void codegen_compile(const char* output_name, int optimize) {
     
     // Link to executable
     snprintf(cmd, sizeof(cmd), 
-        "clang %s.o -o %s %s -lm 2>/dev/null", 
+        "gcc %s.o -o %s %s -lm 2>/dev/null", 
         output_name, output_name, opt_flags);
     int result = system(cmd);
     
