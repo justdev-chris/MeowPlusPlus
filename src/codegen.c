@@ -9,7 +9,7 @@
 #include "meowplus.h"
 
 // ─── GLOBALS ──────────────────────────────────────────────────
-static LLVMModuleRef module;
+LLVMModuleRef module;
 static LLVMBuilderRef builder;
 static LLVMValueRef tape_ptr;
 static LLVMValueRef ptr_var;
