@@ -38,16 +38,50 @@ void parser_parse(Token* tokens, int count) {
     pos = 0;
     
     if (count == 0) {
-        printf("⚠️ No tokens to parse\n");
+        fprintf(stderr, "⚠️ No tokens to parse\n");
         return;
     }
     
     advance();
     
+    // Validate tokens
     for (int i = 0; i < count; i++) {
         if (tokens[i].type == TOKEN_ERROR) {
             fprintf(stderr, "⚠️ Invalid tokens found. Aborting.\n");
             exit(1);
         }
     }
+    
+    // Match loops
+    if (!parser_match_loops(tokens, count)) {
+        fprintf(stderr, "⚠️ Unmatched loops found\n");
+        exit(1);
+    }
+}
+
+// ─── MATCH LOOPS ─────────────────────────────────────────────
+int parser_match_loops(Token* tokens, int count) {
+    int stack[1024];
+    int stack_size = 0;
+    
+    for (int i = 0; i < count; i++) {
+        if (tokens[i].type == TOKEN_IFMEOW) {
+            stack[stack_size++] = i;
+        } else if (tokens[i].type == TOKEN_ENDMEOW) {
+            if (stack_size == 0) {
+                fprintf(stderr, "⚠️ Unmatched 'endmeow' at line %d\n", tokens[i].line);
+                return 0;
+            }
+            int start = stack[--stack_size];
+            tokens[start].index = i;
+            tokens[i].index = start;
+        }
+    }
+    
+    if (stack_size > 0) {
+        fprintf(stderr, "⚠️ Unmatched 'ifmeow' at line %d\n", tokens[stack[stack_size-1]].line);
+        return 0;
+    }
+    
+    return 1;
 }
