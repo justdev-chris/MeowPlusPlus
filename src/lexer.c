@@ -84,6 +84,7 @@ Token lexer_next_token() {
     token.line = line;
     token.text = NULL;
     token.type = TOKEN_ERROR;
+    token.index = -1;
     
     if (is_at_end()) {
         token.type = TOKEN_EOF;
@@ -115,14 +116,23 @@ Token lexer_next_token() {
         
         token.type = scan_keyword(word);
         if (token.type == TOKEN_ERROR) {
-            printf("⚠️ Unknown word: '%s' at line %d\n", word, line);
+            fprintf(stderr, "⚠️ Unknown word: '%s' at line %d\n", word, line);
         }
         token.text = strdup(word);
         return token;
     }
     
     // Unexpected character
-    printf("⚠️ Unexpected character '%c' at line %d\n", peek(), line);
+    fprintf(stderr, "⚠️ Unexpected character '%c' at line %d\n", peek(), line);
     advance();
     return token;
+}
+
+void lexer_free_tokens(Token* tokens, int count) {
+    for (int i = 0; i < count; i++) {
+        if (tokens[i].text) {
+            free(tokens[i].text);
+            tokens[i].text = NULL;
+        }
+    }
 }
