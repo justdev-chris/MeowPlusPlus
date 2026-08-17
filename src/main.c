@@ -152,31 +152,39 @@ int main(int argc, char* argv[]) {
     // Parse and match loops
     parser_match_loops(tokens, count);
     
-    if (emit_ir) {
-        // Just generate LLVM IR
-        codegen_init();
-        codegen_generate(tokens, count);
-        
-        char* ir_file = malloc(strlen(output_file) + 4);
-        sprintf(ir_file, "%s.ll", output_file);
-        
-        char* error = NULL;
-        if (LLVMPrintModuleToFile(module, ir_file, &error) != 0) {
-            fprintf(stderr, "Failed to write IR: %s\n", error);
-            free(ir_file);
+    // Check if LLVM is available (codegen functions exist)
+    #ifdef HAVE_LLVM
+        if (emit_ir) {
+            // Generate LLVM IR
+            codegen_init();
+            codegen_generate(tokens, count);
+            
+            char* ir_file = malloc(strlen(output_file) + 4);
+            sprintf(ir_file, "%s.ll", output_file);
+            
+            char* error = NULL;
+            if (LLVMPrintModuleToFile(module, ir_file, &error) != 0) {
+                fprintf(stderr, "Failed to write IR: %s\n", error);
+                free(ir_file);
+            } else {
+                printf("✅ Generated LLVM IR to %s\n", ir_file);
+                free(ir_file);
+            }
+            
+            codegen_cleanup();
         } else {
-            printf("✅ Generated LLVM IR to %s\n", ir_file);
-            free(ir_file);
+            // Compile to executable
+            codegen_init();
+            codegen_generate(tokens, count);
+            codegen_compile(output_file, optimize);
+            codegen_cleanup();
         }
-        
-        codegen_cleanup();
-    } else {
-        // Compile to executable
-        codegen_init();
-        codegen_generate(tokens, count);
-        codegen_compile(output_file, optimize);
-        codegen_cleanup();
-    }
+    #else
+        // No LLVM available - just run with interpreter
+        fprintf(stderr, "⚠️ LLVM not available - running with interpreter instead\n");
+        interpreter_meowplus(tokens, count);
+        printf("\n");
+    #endif
     
     lexer_free_tokens(tokens, count);
     free(code);
