@@ -53,13 +53,11 @@ void codegen_init() {
     LLVMSetLinkage(ptr_var, LLVMPrivateLinkage);
     LLVMSetInitializer(ptr_var, LLVMConstInt(ptr_type, 0, 0));
     
-    // Add external functions with correct signatures
-    // putchar: int putchar(int)
+    // Add external functions
     LLVMTypeRef putchar_args[] = { LLVMInt32TypeInContext(context) };
     LLVMTypeRef putchar_type = LLVMFunctionType(LLVMInt32TypeInContext(context), putchar_args, 1, 0);
     LLVMAddFunction(module, "putchar", putchar_type);
     
-    // getchar: int getchar(void)
     LLVMTypeRef getchar_type = LLVMFunctionType(LLVMInt32TypeInContext(context), NULL, 0, 0);
     LLVMAddFunction(module, "getchar", getchar_type);
 }
@@ -91,7 +89,6 @@ static LLVMValueRef get_cell_ptr(LLVMValueRef ptr_val) {
 
 // ─── GENERATE MAIN FUNCTION ──────────────────────────────────
 LLVMValueRef codegen_create_main() {
-    // main should return int, not void
     LLVMTypeRef main_type = LLVMFunctionType(LLVMInt32TypeInContext(context), NULL, 0, 0);
     LLVMValueRef main_func = LLVMAddFunction(module, "main", main_type);
     LLVMBasicBlockRef entry = LLVMAppendBasicBlockInContext(context, main_func, "entry");
@@ -208,11 +205,6 @@ void codegen_generate(const Token* tokens, int count) {
 
 // ─── COMPILE ──────────────────────────────────────────────────
 void codegen_compile(const char* output_name, int optimize) {
-    // Verify the module
-    if (LLVMVerifyModule(module, LLVMPrintMessageAction, NULL)) {
-        fprintf(stderr, "⚠️ Module verification failed\n");
-    }
-    
     // Write bitcode
     char* bc_file = malloc(strlen(output_name) + 5);
     sprintf(bc_file, "%s.bc", output_name);
@@ -230,16 +222,10 @@ void codegen_compile(const char* output_name, int optimize) {
     else if (optimize >= 2) opt_flags = "-O2";
     else if (optimize >= 1) opt_flags = "-O1";
     
-    // On Windows, use gcc instead of clang for better compatibility
-    #ifdef _WIN32
-        snprintf(cmd, sizeof(cmd), 
-            "gcc %s.bc -o %s.exe %s -lm -no-pie", 
-            output_name, output_name, opt_flags);
-    #else
-        snprintf(cmd, sizeof(cmd), 
-            "clang %s.bc -o %s %s -lm", 
-            output_name, output_name, opt_flags);
-    #endif
+    // Use GCC for linking on Windows
+    snprintf(cmd, sizeof(cmd), 
+        "gcc -o %s %s.bc %s -lm -no-pie", 
+        output_name, output_name, opt_flags);
     
     int result = system(cmd);
     
@@ -247,6 +233,7 @@ void codegen_compile(const char* output_name, int optimize) {
         printf("✅ Compiled to %s\n", output_name);
     } else {
         fprintf(stderr, "⚠️ Compilation failed with code %d\n", result);
+        fprintf(stderr, "Command: %s\n", cmd);
     }
     
     // Clean up
