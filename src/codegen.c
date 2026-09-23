@@ -17,6 +17,13 @@ static LLVMValueRef current_func;
 static LLVMBasicBlockRef current_bb;
 static LLVMContextRef context;
 
+// FIX: hoisted type refs so we don't recreate/intern them on every call
+static LLVMTypeRef tape_type;
+static LLVMTypeRef i8_type;
+static LLVMTypeRef i32_type;
+static LLVMTypeRef putchar_type;
+static LLVMTypeRef getchar_type;
+
 // ─── LOOP STACK ──────────────────────────────────────────────
 typedef struct {
     LLVMBasicBlockRef condition;
@@ -40,56 +47,66 @@ void codegen_init() {
     LLVMSetTarget(module, LLVMGetDefaultTargetTriple());
     
     builder = LLVMCreateBuilderInContext(context);
-    
-    // Create tape array (30000 bytes)
-    LLVMTypeRef tape_type = LLVMArrayType(LLVMInt8TypeInContext(context), TAPE_SIZE);
+
+    // FIX: intern the primitive types once
+    i8_type  = LLVMInt8TypeInContext(context);
+    i32_type = LLVMInt32TypeInContext(context);
+
+    // FIX: tape_type built once and reused everywhere
+    tape_type = LLVMArrayType(i8_type, TAPE_SIZE);
     tape_ptr = LLVMAddGlobal(module, tape_type, "tape");
     LLVMSetLinkage(tape_ptr, LLVMPrivateLinkage);
     LLVMSetInitializer(tape_ptr, LLVMConstNull(tape_type));
     
     // Create pointer variable (i32)
-    LLVMTypeRef ptr_type = LLVMInt32TypeInContext(context);
-    ptr_var = LLVMAddGlobal(module, ptr_type, "ptr");
+    ptr_var = LLVMAddGlobal(module, i32_type, "ptr");
     LLVMSetLinkage(ptr_var, LLVMPrivateLinkage);
-    LLVMSetInitializer(ptr_var, LLVMConstInt(ptr_type, 0, 0));
+    LLVMSetInitializer(ptr_var, LLVMConstInt(i32_type, 0, 0));
     
-    // Add external functions
-    LLVMTypeRef putchar_args[] = { LLVMInt32TypeInContext(context) };
-    LLVMTypeRef putchar_type = LLVMFunctionType(LLVMInt32TypeInContext(context), putchar_args, 1, 0);
+    // FIX: build and store the function types for putchar/getchar
+    LLVMTypeRef putchar_args[] = { i32_type };
+    putchar_type = LLVMFunctionType(i32_type, putchar_args, 1, 0);
     LLVMAddFunction(module, "putchar", putchar_type);
     
-    LLVMTypeRef getchar_type = LLVMFunctionType(LLVMInt32TypeInContext(context), NULL, 0, 0);
+    getchar_type = LLVMFunctionType(i32_type, NULL, 0, 0);
     LLVMAddFunction(module, "getchar", getchar_type);
 }
 
 // ─── EMIT PUTCHAR ─────────────────────────────────────────────
 static void emit_putchar(LLVMValueRef val) {
     LLVMValueRef putchar = LLVMGetNamedFunction(module, "putchar");
-    LLVMValueRef int_arg = LLVMBuildZExt(builder, val, LLVMInt32TypeInContext(context), "");
-    LLVMBuildCall2(builder, LLVMInt32TypeInContext(context), putchar, &int_arg, 1, "");
+    LLVMValueRef int_arg = LLVMBuildZExt(builder, val, i32_type, "");
+    // FIX: pass the function type (putchar_type), not i32_type
+    LLVMBuildCall2(builder, putchar_type, putchar, &int_arg, 1, "");
 }
 
 // ─── EMIT GETCHAR ─────────────────────────────────────────────
 static void emit_getchar(LLVMValueRef cell_ptr) {
     LLVMValueRef getchar = LLVMGetNamedFunction(module, "getchar");
-    LLVMValueRef result = LLVMBuildCall2(builder, LLVMInt32TypeInContext(context), getchar, NULL, 0, "");
-    result = LLVMBuildTrunc(builder, result, LLVMInt8TypeInContext(context), "");
+    // FIX: pass getchar_type, not i32_type
+    LLVMValueRef result = LLVMBuildCall2(builder, getchar_type, getchar, NULL, 0, "");
+    // FIX: mask low byte before truncating so EOF doesn't become 0xFF
+    LLVMValueRef masked = LLVMBuildAnd(builder, result,
+        LLVMConstInt(i32_type, 0xFF, 0), "");
+    result = LLVMBuildTrunc(builder, masked, i8_type, "");
     LLVMBuildStore(builder, result, cell_ptr);
 }
 
 // ─── GET CELL POINTER ─────────────────────────────────────────
+// FIX: GEP directly into the global tape array.
+// Do NOT load the array by value — that produces a temporary with no
+// stable address and LLVM will choke on the resulting GEP.
 static LLVMValueRef get_cell_ptr(LLVMValueRef ptr_val) {
-    LLVMValueRef tape = LLVMBuildLoad2(builder, LLVMArrayType(LLVMInt8TypeInContext(context), TAPE_SIZE), tape_ptr, "tape_load");
     LLVMValueRef indices[] = {
-        LLVMConstInt(LLVMInt32TypeInContext(context), 0, 0),
+        LLVMConstInt(i32_type, 0, 0),
         ptr_val
     };
-    return LLVMBuildGEP2(builder, LLVMArrayType(LLVMInt8TypeInContext(context), TAPE_SIZE), tape, indices, 2, "cell_ptr");
+    return LLVMBuildGEP2(builder, tape_type, tape_ptr, indices, 2, "cell_ptr");
 }
 
 // ─── GENERATE MAIN FUNCTION ──────────────────────────────────
 LLVMValueRef codegen_create_main() {
-    LLVMTypeRef main_type = LLVMFunctionType(LLVMInt32TypeInContext(context), NULL, 0, 0);
+    LLVMTypeRef main_type = LLVMFunctionType(i32_type, NULL, 0, 0);
     LLVMValueRef main_func = LLVMAddFunction(module, "main", main_type);
     LLVMBasicBlockRef entry = LLVMAppendBasicBlockInContext(context, main_func, "entry");
     LLVMPositionBuilderAtEnd(builder, entry);
@@ -109,7 +126,7 @@ void codegen_generate(const Token* tokens, int count) {
     }
     
     // Initialize ptr
-    LLVMValueRef ptr = LLVMConstInt(LLVMInt32TypeInContext(context), 0, 0);
+    LLVMValueRef ptr = LLVMConstInt(i32_type, 0, 0);
     LLVMBuildStore(builder, ptr, ptr_var);
     
     // Get initial cell pointer
@@ -119,31 +136,31 @@ void codegen_generate(const Token* tokens, int count) {
     for (int i = 0; i < count; i++) {
         switch (tokens[i].type) {
             case TOKEN_PURR: {
-                LLVMValueRef val = LLVMBuildLoad2(builder, LLVMInt8TypeInContext(context), cell_ptr, "");
-                val = LLVMBuildAdd(builder, val, LLVMConstInt(LLVMInt8TypeInContext(context), 1, 0), "");
+                LLVMValueRef val = LLVMBuildLoad2(builder, i8_type, cell_ptr, "");
+                val = LLVMBuildAdd(builder, val, LLVMConstInt(i8_type, 1, 0), "");
                 LLVMBuildStore(builder, val, cell_ptr);
                 break;
             }
             case TOKEN_HISS: {
-                LLVMValueRef val = LLVMBuildLoad2(builder, LLVMInt8TypeInContext(context), cell_ptr, "");
-                val = LLVMBuildSub(builder, val, LLVMConstInt(LLVMInt8TypeInContext(context), 1, 0), "");
+                LLVMValueRef val = LLVMBuildLoad2(builder, i8_type, cell_ptr, "");
+                val = LLVMBuildSub(builder, val, LLVMConstInt(i8_type, 1, 0), "");
                 LLVMBuildStore(builder, val, cell_ptr);
                 break;
             }
             case TOKEN_PAW: {
-                ptr = LLVMBuildAdd(builder, ptr, LLVMConstInt(LLVMInt32TypeInContext(context), 1, 0), "");
+                ptr = LLVMBuildAdd(builder, ptr, LLVMConstInt(i32_type, 1, 0), "");
                 LLVMBuildStore(builder, ptr, ptr_var);
                 cell_ptr = get_cell_ptr(ptr);
                 break;
             }
             case TOKEN_PAWBACK: {
-                ptr = LLVMBuildSub(builder, ptr, LLVMConstInt(LLVMInt32TypeInContext(context), 1, 0), "");
+                ptr = LLVMBuildSub(builder, ptr, LLVMConstInt(i32_type, 1, 0), "");
                 LLVMBuildStore(builder, ptr, ptr_var);
                 cell_ptr = get_cell_ptr(ptr);
                 break;
             }
             case TOKEN_MEOW: {
-                LLVMValueRef val = LLVMBuildLoad2(builder, LLVMInt8TypeInContext(context), cell_ptr, "");
+                LLVMValueRef val = LLVMBuildLoad2(builder, i8_type, cell_ptr, "");
                 emit_putchar(val);
                 break;
             }
@@ -168,9 +185,8 @@ void codegen_generate(const Token* tokens, int count) {
                 LLVMPositionBuilderAtEnd(builder, condition);
                 
                 // Check condition
-                LLVMValueRef val = LLVMBuildLoad2(builder, LLVMInt8TypeInContext(context), cell_ptr, "");
-                LLVMValueRef zero = LLVMConstInt(LLVMInt8TypeInContext(context), 0, 0);
-                LLVMValueRef cond = LLVMBuildICmp(builder, LLVMIntEQ, val, zero, "");
+                LLVMValueRef val = LLVMBuildLoad2(builder, i8_type, cell_ptr, "");
+                LLVMValueRef cond = LLVMBuildICmp(builder, LLVMIntEQ, val, LLVMConstInt(i8_type, 0, 0), "");
                 LLVMBuildCondBr(builder, cond, end, body);
                 
                 // Position at body start
@@ -200,11 +216,23 @@ void codegen_generate(const Token* tokens, int count) {
     }
     
     // Return 0 from main
-    LLVMBuildRet(builder, LLVMConstInt(LLVMInt32TypeInContext(context), 0, 0));
+    LLVMBuildRet(builder, LLVMConstInt(i32_type, 0, 0));
 }
 
 // ─── COMPILE ──────────────────────────────────────────────────
 void codegen_compile(const char* output_name, int optimize) {
+    // FIX: verify the IR before we do anything with it. This catches
+    // malformed instructions (bad call types, GEPs into temporaries,
+    // mismatched types, etc.) with a real error message instead of a
+    // segfault later in clang.
+    char* verify_err = NULL;
+    if (LLVMVerifyModule(module, LLVMReturnStatusAction, &verify_err)) {
+        fprintf(stderr, "⚠️ LLVM IR verification failed:\n%s\n", verify_err);
+        LLVMDisposeMessage(verify_err);
+        return;
+    }
+    LLVMDisposeMessage(verify_err);
+
     // Write bitcode
     char* bc_file = malloc(strlen(output_name) + 5);
     sprintf(bc_file, "%s.bc", output_name);
