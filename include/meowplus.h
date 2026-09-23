@@ -7,7 +7,7 @@
 #include <ctype.h>
 
 #define MAX_CODE 10000
-#define TAPE_SIZE 30000
+#define TAPE_SIZE 1000000
 
 // ─── TOKEN TYPES ──────────────────────────────────────────────
 typedef enum {
