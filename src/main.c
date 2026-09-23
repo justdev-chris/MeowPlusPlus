@@ -54,7 +54,11 @@ char* read_file(const char* path) {
     return buf;
 }
 
-void run_code(const char* code) {
+// FIX: return an int so callers can detect parse failure and bail.
+// Previously this returned void, and the caller always ran the
+// interpreter even when parser_match_loops() had failed, which fed
+// tokens with index == -1 into the interpreter and hung forever.
+int run_code(const char* code) {
     lexer_init(code);
     
     Token tokens[1024];
@@ -68,13 +72,21 @@ void run_code(const char* code) {
     
     if (count == 0) {
         fprintf(stderr, "🐾 No tokens found\n");
-        return;
+        return 0;
     }
     
-    parser_match_loops(tokens, count);
+    // FIX: check the return value. If loop matching fails, stop
+    // before handing the tokens to the interpreter.
+    if (!parser_match_loops(tokens, count)) {
+        fprintf(stderr, "🐾 Aborting due to parse errors\n");
+        lexer_free_tokens(tokens, count);
+        return 1;
+    }
+    
     interpreter_meowplus(tokens, count);
     printf("\n");
     lexer_free_tokens(tokens, count);
+    return 0;
 }
 
 static int parse_optimization(const char* arg) {
@@ -112,9 +124,9 @@ int main(int argc, char* argv[]) {
         }
         char* code = read_file(argv[2]);
         if (!code) return 1;
-        run_code(code);
+        int rc = run_code(code);   // FIX: capture and propagate exit code
         free(code);
-        return 0;
+        return rc;
     }
     
     // Compilation mode
@@ -153,8 +165,13 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     
-    // Parse and match loops
-    parser_match_loops(tokens, count);
+    // FIX: parse and match loops — bail out if it fails, same as -r path.
+    if (!parser_match_loops(tokens, count)) {
+        fprintf(stderr, "🐾 Aborting due to parse errors\n");
+        lexer_free_tokens(tokens, count);
+        free(code);
+        return 1;
+    }
     
     // Check if LLVM is available (codegen functions exist)
     #ifdef HAVE_LLVM
