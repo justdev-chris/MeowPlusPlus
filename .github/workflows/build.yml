@@ -95,12 +95,19 @@ jobs:
           echo "--- TEST $test_count: $1 ---"
           echo "Input: $2"
           echo "Output:"
-          eval $2
-          if [ $? -eq 0 ]; then
+
+          # FIX: disable errexit around the eval so a failing/crashing test
+          # doesn't kill the whole CI step. Capture exit status immediately.
+          set +e
+          eval "$2"
+          local rc=$?
+          set -e
+
+          if [ $rc -eq 0 ]; then
             echo "✅ PASSED"
             pass_count=$((pass_count + 1))
           else
-            echo "❌ FAILED (exit code: $?)"
+            echo "❌ FAILED (exit code: $rc)"
             fail_count=$((fail_count + 1))
           fi
           echo "--- END TEST $test_count ---"
