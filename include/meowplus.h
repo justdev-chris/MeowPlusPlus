@@ -55,6 +55,6 @@ void interpreter_repl();
 // ─── HELPERS ──────────────────────────────────────────────────
 void print_usage();
 char* read_file(const char* path);
-void run_code(const char* code);
+int run_code(const char* code);
 
 #endif
